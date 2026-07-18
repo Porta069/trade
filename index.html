@@ -151,10 +151,16 @@
       for(let k=kc-9;k<=kc+3;k++){ if(k<0)continue; const o=openTime(k); if(o<=t && t<o+duration(k)) out.push(posAt(k,t)); }
       out.sort((a,b)=>a.openTs-b.openTs); return out;
     }
-    const EPOCH=Date.UTC(2026,5,15), BAL_BASE=122400, BAL_RATE=2;
+    const BAL_ANCHOR=119000;
     function account(t){
       const pos=positions(t), floating=pos.reduce((a,p)=>a+p.pnl,0);
-      const balance=BAL_BASE+((t-EPOCH)/3.6e6)*BAL_RATE;
+      // Balance = Anker + realisierte P/L eines gleitenden 90-Min-Fensters → tickt bei jedem Close
+      const kNow=Math.floor(t/GAP); let realized=0;
+      for(let k=Math.max(0,kNow-200); k<=kNow; k++){
+        const ce=openTime(k)+duration(k);
+        if(ce<=t && ce> t-90*60000) realized+=posAt(k,ce).pnl;
+      }
+      const balance=BAL_ANCHOR+realized;
       const equity=balance+floating, margin=pos.reduce((a,p)=>a+p.vol*p.sym.mpl,0);
       return {floating, balance, equity, margin, free:equity-margin, level:margin>0?equity/margin*100:0, count:pos.length};
     }
